@@ -28,72 +28,6 @@ The project uses Nginx to explore Nomad's job lifecycle, task groups, allocation
 - Nginx Alpine
 - Ubuntu Linux
 
-## Architecture
-
-```text
-       HCL Job Specification
-                |
-                v
-         Nomad Scheduler
-                |
-                v
-            Allocation
-                |
-                v
-           Docker Driver
-                |
-                v
-          Nginx Container
-                |
-                v
-       localhost:8080 -> :80
-```
-
-## Project Structure
-
-```text
-HashiCorp-nomad/
-├── screenshots/
-│   ├── 01-nomad-job-specification.png
-│   ├── 02-nomad-validation.png
-│   └── 03-nomad-dashboard.png
-├── example.nomad.hcl
-├── nginx.nomad
-└── README.md
-```
-
-## Job Configuration
-
-The `nginx.nomad` file defines:
-
-- Job: `nginx-demo`
-- Task Group: `web`
-- Instances: `1`
-- Driver: `docker`
-- Image: `nginx:alpine`
-- Port Mapping: `8080:80`
-- CPU: `500 MHz`
-- Memory: `256 MiB`
-
-## Validation and Deployment
-
-Validated the job specification:
-
-```bash
-nomad job validate nginx.nomad
-```
-
-**Result:** `Job validation successful`
-
-Planned and deployed the job:
-
-```bash
-nomad job plan nginx.nomad
-nomad job run nginx.nomad
-```
-
-Verified the Nginx welcome page at `http://localhost:8080`.
-
 ## Screenshots & Evidence
 
 ### 01. Nomad Job Specification
@@ -108,12 +42,99 @@ Verified the Nginx welcome page at `http://localhost:8080`.
 
 ![Nomad Dashboard](screenshots/03-nomad-dashboard.png)
 
+## Architecture
+
+The workflow starts with an HCL job specification. Nomad validates and schedules the job, creates an allocation, and uses its Docker driver to run the Nginx container. The service is exposed on the host at port 8080, mapped to container port 80.
+
+~~~mermaid
+flowchart TB
+    A["nginx.nomad<br/>HCL Job Specification"]
+
+    subgraph CONTROL["Nomad Control Plane"]
+        B["Nomad Agent"]
+        C["Job Scheduler"]
+        B --> C
+    end
+
+    subgraph RUNTIME["Workload Runtime"]
+        D["Allocation"]
+        E["Task Group: web"]
+        F["Docker Driver"]
+        G["Nginx Container<br/>nginx:alpine"]
+        D --> E --> F --> G
+    end
+
+    H["Browser / HTTP Client"]
+
+    A -->|"Validate · Plan · Run"| B
+    C -->|"Schedule workload"| D
+    G -->|"Container port 80"| I["Host port 8080"]
+    I --> H
+
+    classDef spec fill:#172554,stroke:#60A5FA,color:#EFF6FF,stroke-width:1.5px
+    classDef control fill:#12352B,stroke:#34D399,color:#ECFDF5,stroke-width:1.5px
+    classDef runtime fill:#3B2415,stroke:#FB923C,color:#FFF7ED,stroke-width:1.5px
+    classDef endpoint fill:#27272A,stroke:#A1A1AA,color:#FAFAFA,stroke-width:1.5px
+
+    class A spec
+    class B,C control
+    class D,E,F,G runtime
+    class H,I endpoint
+~~~
+
+**Request flow:** Browser → localhost:8080 → Docker port mapping → Nginx container on port 80.
+
+## Project Structure
+
+~~~text
+HashiCorp-nomad/
+├── screenshots/
+│   ├── 01-nomad-job-specification.png
+│   ├── 02-nomad-validation.png
+│   └── 03-nomad-dashboard.png
+├── example.nomad.hcl
+├── nginx.nomad
+└── README.md
+~~~
+
+## Job Configuration
+
+The nginx.nomad file defines:
+
+- Job: nginx-demo
+- Task Group: web
+- Instances: 1
+- Driver: docker
+- Image: nginx:alpine
+- Port Mapping: 8080:80
+- CPU: 500 MHz
+- Memory: 256 MiB
+
+## Validation and Deployment
+
+Validated the job specification:
+
+~~~bash
+nomad job validate nginx.nomad
+~~~
+
+**Result:** Job validation successful
+
+Planned and deployed the job:
+
+~~~bash
+nomad job plan nginx.nomad
+nomad job run nginx.nomad
+~~~
+
+Verified the Nginx welcome page at http://localhost:8080.
+
 ## Problems & Solutions
 
 | Challenge | Solution |
 |---|---|
 | Dashboard initially showed no jobs | Created and submitted an HCL job specification |
-| Validation did not start the workload | Used `nomad job plan` and `nomad job run` |
+| Validation did not start the workload | Used nomad job plan and nomad job run |
 | Job stopped after testing | Redeployed the job to verify its healthy status |
 
 ## Key Learnings
